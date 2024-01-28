@@ -1,17 +1,13 @@
-import { findIndex } from "../common/helper.js";
-import DB_CONFIG from '../config/dbconfig.js'
-import mongodb,{ MongoClient } from "mongodb";
+import UserModel from "../models/user.js";
+import dotenv from "dotenv";
+dotenv.config();
 
-const client = new MongoClient(DB_CONFIG.DB_URL);
-
-const getUserById = async(req, res) => {
-  await client.connect();
+const getUserById = async (req, res) => {
   try {
-    const db = await client.db(DB_CONFIG.DB_NAME)
-    let users = await db.collection('users').findOne({_id:new mongodb.ObjectId(req.params.id)})
+    let users = await UserModel.findById({_id:req.params.id})
     res.status(200).send({
       message: "User Data Fetch Successful",
-      user
+      users,
     });
   } catch (error) {
     res.status(500).send({
@@ -19,19 +15,14 @@ const getUserById = async(req, res) => {
     });
     console.log(error);
   }
-  finally{
-    client.close()
-}
 };
 
-const getAllUsers = async(req,res)=>{
-  await client.connect();
+const getAllUsers = async (req, res) => {
   try {
-    const db = await client.db(DB_CONFIG.DB_NAME)
-    let users = await db.collection('users').find().toArray()
+    let users = await UserModel.find()
     res.status(200).send({
       message: "User Data Fetch Successful",
-      users
+      users,
     });
   } catch (error) {
     res.status(500).send({
@@ -39,54 +30,69 @@ const getAllUsers = async(req,res)=>{
     });
     console.log(error);
   }
-  finally{
-    client.close()
-}
 };
-const addUser = async(req,res)=>{
-
-    await client.connect();
+const addUser = async (req, res) => {
   try {
-    const db = await client.db(DB_CONFIG.DB_NAME)
     //check if the email exists in DB
-   const user = await db.collection('users').findOne({email:req.body.email})
-   if (!user) {
-    //if email not found create the user
-    let newUser = await db.collection('users').insertOne(req.body)
-    res.status(200).send({
+    const user = await UserModel.findOne({email:req.body.email})
+    if (!user) {
+      //if email not found create the user
+      let newUser = await UserModel.create(req.body)
+      res.status(200).send({
         message: "User Added Successfully",
       });
-   } else {
-    //if email is found respond error message
-    res.status(400).send({
-        message:`User With ${req.body.email} already exists`
-    })
-   } 
+    } else {
+      //if email is found respond error message
+      res.status(400).send({
+        message: `User With ${req.body.email} already exists`,
+      });
+    }
   } catch (error) {
     res.status(500).send({
       message: "Internal Server Error",
+      error:error.message
     });
-    console.log(error);
   }
-  finally{
-    client.close()
 }
+const editUserById = async (req, res) => {
+  try {
+    let user = await UserModel.findById({_id:req.params.id})
+    if (user) {
+      user.name = req.body.name
+      user.email = req.body.email
+      user.password = req.body.password
+      user.status = req.body.status
+      user.role = req.body.role
+
+      await user.save()
+
+      res.status(200).send({
+        message: "User Edited Successfully",
+      });
+    } else {
+      res.status(400).send({
+        message: "Invvalid User Id",
+      });
+    }
+  } catch (error) {
+    res.status(500).send({
+      message: "Internal Server Error",
+      error:error.message
+    });
+  }
 };
 
-const editUserById = async(req, res) => {
-  await client.connect();
+const deleteUserById = async (req, res) => {
   try {
-    const db = await client.db(DB_CONFIG.DB_NAME)
-    let users = await db.collection('users').findOne({_id:new mongodb.ObjectId(req.params.id)})
-    if(user){
-      await db.collection('users').updateOne({_id:new mongodb.ObjectId(req.params.id)},{$set:req.body})
+    let users = await UserModel.findById({_id:req.params.id})
+    if (users) {
+      await UserModel.deleteOne({_id:req.params.id})
       res.status(200).send({
-        message:"User Edited Successfully"
-      })
-    }
-    else{
+        message: "User Deleted Successfully",
+      });
+    } else {
       res.status(400).send({
-        message: "Invvalid User Id"
+        message: "Invvalid User Id",
       });
     }
   } catch (error) {
@@ -95,36 +101,6 @@ const editUserById = async(req, res) => {
     });
     console.log(error);
   }
-  finally{
-    client.close()
-}
-};
-
-const deleteUserById = async(req, res) => {
-  await client.connect();
-  try {
-    const db = await client.db(DB_CONFIG.DB_NAME)
-    let users = await db.collection('users').findOne({_id:new mongodb.ObjectId(req.params.id)})
-    if(user){
-      await db.collection('users').deleteOne({_id:new mongodb.ObjectId(req.params.id)})
-      res.status(200).send({
-        message:"User Deleted Successfully"
-      })
-    }
-    else{
-      res.status(400).send({
-        message: "Invvalid User Id"
-      });
-    }
-  } catch (error) {
-    res.status(500).send({
-      message: "Internal Server Error",
-    });
-    console.log(error);
-  }
-  finally{
-    client.close()
-}
 };
 
 export default {
@@ -133,4 +109,4 @@ export default {
   addUser,
   editUserById,
   deleteUserById,
-};
+}
